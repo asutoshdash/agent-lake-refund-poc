@@ -61,10 +61,15 @@ def answer(turn, history, *, complete, model):
     if call.function.name != "lookup_refund":
         raise ValueError("Unexpected tool requested")
     requested = json.loads(call.function.arguments)["refund_id"]
+    trace = [{"stage": "Customer question", "data": turn["question"]},
+             {"stage": "Model requested a tool", "data": {"model": model, "tool": call.function.name,
+              "refund_id": requested, "tool_call_id": call.id}}]
     result = lookup(requested, turn["refund_id"], turn["snapshot"])
+    trace.append({"stage": "Payment lookup", "data": result})
     matched = requested == turn["refund_id"]
     if not result or result.get("state") not in {"pending", "settled", "failed"}:
         reply = "I couldn't verify your refund status."
+        trace.append({"stage": "Fallback reply", "data": reply})
     else:
         messages.append(choice.message.model_dump(exclude_none=True))
         messages.append({"role": "tool", "tool_call_id": call.id, "content": json.dumps(result)})
@@ -72,7 +77,8 @@ def answer(turn, history, *, complete, model):
         if final.finish_reason != "stop" or not final.message.content:
             raise RuntimeError("Incomplete customer reply")
         reply = final.message.content
-    return {"reply": reply, "tool_result": result if matched else None, "fresh_lookup": matched}
+        trace.append({"stage": "Model reply", "data": reply})
+    return {"reply": reply, "tool_result": result if matched else None, "fresh_lookup": matched, "trace": trace}
 
 
 def conversation(turns, *, complete, model):

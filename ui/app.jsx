@@ -10,6 +10,7 @@ function Console() {
   const [scenario, setScenario] = useState("pending");
   const [question, setQuestion] = useState("Has my refund gone through?");
   const [rows, setRows] = useState([]);
+  const [evaluate, setEvaluate] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -21,7 +22,7 @@ function Console() {
     setRows([]);
     try {
       const response = await fetch("/api/query", {method: "POST", headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({case: scenario, question})});
+        body: JSON.stringify({case: scenario, question, evaluate})});
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Request failed. Try again.");
       setRows(data.turns);
@@ -38,13 +39,18 @@ function Console() {
         {Object.entries(scenarios).map(([value,label])=><option value={value} key={value}>{label}</option>)}</select>
       <label htmlFor="question">{scenario === "followup" ? "Follow-up question" : "Customer question"}</label>
       <textarea id="question" required maxLength={1200} rows="3" value={question} disabled={busy} onChange={e=>setQuestion(e.target.value)}/>
+      <label className="check"><input type="checkbox" checked={evaluate} disabled={busy} onChange={e=>setEvaluate(e.target.checked)}/> Evaluate the reply with OpenAI</label>
       <button disabled={busy}>{busy ? "Running lookup…" : "Run query"}</button>
       <small>Live agent · Simulated payments</small></form>
-      <section aria-labelledby="result"><h2 id="result">Result</h2><div role="status">{busy ? "Waiting for the refund agent…" : rows.length ? "Lookup complete" : error ? "" : "Run a query to see the agent’s reply and lookup result."}</div>
+      <section aria-labelledby="result"><h2 id="result">Agent Lake pipeline</h2><div role="status">{busy ? "Waiting for the refund agent…" : rows.length ? "Lookup complete" : error ? "" : "Run a query to trace the question, tool call, payment evidence, and reply."}</div>
       {error && <p role="alert">{error}</p>}
       {rows.map((r,i)=><article key={i}><div className="metadata">{r.refund_id} · Turn {i+1}</div>
-        <h3>Customer</h3><p>{r.question}</p><h3>Agent reply</h3><p className="reply">{r.reply}</p>
-        <details open><summary>Payment lookup</summary><pre>{JSON.stringify(r.tool_result,null,2)}</pre></details></article>)}
+        <h3>Agent reply</h3><p className="reply">{r.reply}</p>
+        <ol className="pipeline">{r.trace.map(step=><li key={step.stage}>
+          <details open={step.stage === "Payment lookup" || step.stage === "Reply evaluation"}>
+            <summary>{step.stage}</summary>
+            {typeof step.data === "string" ? <p>{step.data}</p> : <pre>{JSON.stringify(step.data,null,2)}</pre>}
+          </details></li>)}</ol></article>)}
       </section></div></main></>;
 }
 createRoot(document.getElementById("root")).render(<Console/>);

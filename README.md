@@ -12,7 +12,7 @@ npm run build --prefix ui
 python3 ui_server.py
 ```
 
-Open [the local console](http://127.0.0.1:8077). Choose a simulated payment scenario, enter a question, and select **Run query**. The pending-to-settled scenario shows both lookups and replies in sequence. Each submission starts a fresh conversation. The server calls the same agent as the CLI and keeps the API key on the server. The React bundle is served locally.
+Open [the local console](http://127.0.0.1:8077). Choose a simulated payment scenario, enter a question, and select **Run query**. The pending-to-settled scenario shows both lookups and replies in sequence. Each submission starts a fresh conversation. Under **Agent Lake pipeline**, expand a step to inspect its runtime data. **Evaluate the reply with OpenAI** adds a judge call per turn and displays its verdict, supporting quote, and scores. This local view shows the current submission. The LangSmith experiment below provides persisted traces across runs. The server calls the same agent as the CLI and keeps the API key on the server. The React bundle is served locally.
 
 ## Try the live OpenAI agent
 

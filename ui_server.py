@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
+from experiments import classify, score
 from agent import conversation, open_client, scenario_turns
 
 ROOT = Path(__file__).resolve().parent
@@ -46,6 +47,9 @@ class Handler(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(length))
             if not isinstance(body, dict) or not isinstance(body.get("question"), str):
                 raise ValueError()
+            evaluate = body.get("evaluate", False)
+            if not isinstance(evaluate, bool):
+                raise ValueError()
             question = body["question"].strip()
             if not 0 < len(question) <= 1200:
                 raise ValueError()
@@ -53,12 +57,26 @@ class Handler(BaseHTTPRequestHandler):
         except (ValueError, KeyError, TypeError):
             return self.json(400, {"error": "Choose a scenario and enter a question up to 1,200 characters."})
         try:
-            outputs = conversation(turns, complete=self.server.client.chat.completions.create,
-                                   model=os.getenv("OPENAI_MODEL", "gpt-4.1-mini"))
+            complete = self.server.client.chat.completions.create
+            model = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
+            outputs = conversation(turns, complete=complete, model=model)
             rows = [dict(question=t["question"], refund_id=t["refund_id"], **result)
                     for t, result in zip(turns, outputs, strict=True)]
         except Exception:
             return self.json(502, {"error": "The agent could not complete the lookup. Check your API configuration and retry."})
+        if evaluate:
+            for turn, row in zip(turns, rows, strict=True):
+                try:
+                    def judge(reply):
+                        return classify(reply, complete, os.getenv("JUDGE_MODEL", model))
+                    metrics = score([turn], [row], judge)
+                    verdict = "Passed" if metrics[-1]["score"] else "Failed"
+                    row["trace"].append({"stage": "Reply evaluation", "data": {
+                        "verdict": verdict, "supporting_quote": metrics[0]["comment"],
+                        "scores": {m["key"].removeprefix("turn_1_"): m["score"] for m in metrics[:-1]}}})
+                except Exception:
+                    row["trace"].append({"stage": "Evaluation unavailable",
+                                         "data": "The judge could not score this reply."})
         self.json(200, {"turns": rows})
 
 

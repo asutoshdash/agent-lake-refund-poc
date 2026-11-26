@@ -160,3 +160,11 @@ summary:focus-visible {
     padding: 2rem 0;
   }
 }
+
+.check {display:flex; align-items:center; gap:.5rem}
+.pipeline {margin:1.2rem 0 0; padding-left:1.7rem}
+.pipeline li {padding:0 0 .7rem .35rem}
+.pipeline li::marker {color:#086757; font-weight:650}
+.pipeline details {margin:0}
+.pipeline summary {padding:.2rem 0}
+.pipeline pre {margin:.4rem 0}

@@ -40,6 +40,9 @@ class AgentTests(unittest.TestCase):
         with OpenAI(api_key="test-only", http_client=httpx.Client(
                 transport=httpx.MockTransport(respond))) as client:
             result = answer(CASES[0], [], complete=client.chat.completions.create, model="test")
+        self.assertEqual([step["stage"] for step in result["trace"]],
+                         ["Customer question", "Model requested a tool", "Payment lookup", "Model reply"])
+        self.assertEqual(result["trace"][2]["data"], CASES[0]["snapshot"])
         self.assertEqual(len(requests), 2)
         self.assertEqual(result["reply"], "The processor still shows pending.")
         self.assertEqual(result["tool_result"], CASES[0]["snapshot"])
@@ -76,6 +79,7 @@ class AgentTests(unittest.TestCase):
 
         timeout = Mock(return_value=tool("demo-refund-9"))
         output = answer(CASES[3], [], complete=timeout, model="test")
+        self.assertEqual(output["trace"][-1]["stage"], "Fallback reply")
         timeout.assert_called_once()
         self.assertEqual(output["reply"], "I couldn't verify your refund status.")
         self.assertTrue(output["fresh_lookup"])
