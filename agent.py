@@ -85,6 +85,14 @@ def conversation(turns, *, complete, model):
         yield output
 
 
+def scenario_turns(case, question):
+    cases = dict(zip(("pending", "settled", "failed", "timeout", "missing"), CASES, strict=True))
+    turns = CASES[:2] if case == "followup" else [cases[case]]
+    if question:
+        turns = [*turns[:-1], dict(turns[-1], question=question)]
+    return turns
+
+
 def main():
     load_dotenv(Path(__file__).resolve().with_name(".env"), override=False)
     parser = argparse.ArgumentParser(description=__doc__)
@@ -93,11 +101,8 @@ def main():
                         default="pending")
     parser.add_argument("--question", help="Ask your own question on the last turn")
     args = parser.parse_args()
-    cases = dict(zip(("pending", "settled", "failed", "timeout", "missing"), CASES, strict=True))
-    turns = CASES[:2] if args.case == "followup" else [cases[args.case]]
+    turns = scenario_turns(args.case, args.question)
     client = open_client()
-    if args.question:
-        turns = [*turns[:-1], dict(turns[-1], question=args.question)]
     outputs = conversation(turns, complete=client.chat.completions.create, model=args.model)
     for turn, output in zip(turns, outputs, strict=True):
         print(f"\n{turn['at']}  {turn['refund_id']}\nCustomer: {turn['question']}")

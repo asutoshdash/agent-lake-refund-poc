@@ -2,6 +2,18 @@
 
 Companion to [Using the LangSmith agent lake to catch false refund confirmations](https://www.aiconnector.ai/blogs/langsmith-agent-lake-refund-guide.html). Was a refund already complete when the assistant told the customer it was?
 
+## Open the React refund console
+
+With the Python dependencies installed and your OpenAI key in the repository's `.env`, run:
+
+```sh
+npm ci --prefix ui
+npm run build --prefix ui
+python3 ui_server.py
+```
+
+Open [the local console](http://127.0.0.1:8077). Choose a simulated payment scenario, enter a question, and select **Run query**. The pending-to-settled scenario shows both lookups and replies in sequence. Each submission starts a fresh conversation. The server calls the same agent as the CLI and keeps the API key on the server. The React bundle is served locally.
+
 ## Try the live OpenAI agent
 
 Run these commands in the cloned repository with Python 3.10+:

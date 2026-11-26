@@ -1,0 +1,162 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: #f5f7f6;
+  color: #173332;
+  font:
+    1rem/1.55 "Inter",
+    system-ui,
+    sans-serif;
+}
+header {
+  background: #102e30;
+  color: white;
+  border-bottom: 3px solid #63d1b9;
+}
+.brand,
+main {
+  width: min(1080px, 92%);
+  margin: auto;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  height: 64px;
+  font-weight: 650;
+}
+.brand span {
+  font-size: 2rem;
+  color: #7ae1c6;
+}
+main {
+  padding: 3.4rem 0;
+}
+h1 {
+  font-size: clamp(2.4rem, 6vw, 3.7rem);
+  letter-spacing: -.055em;
+  line-height: 1.05;
+  margin: 0;
+}
+.intro {
+  color: #48635e;
+  max-width: 62ch;
+  margin: 1rem 0 2rem;
+}
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+form,
+section {
+  background: white;
+  padding: clamp(1.2rem, 3vw, 2rem);
+  border: 1px solid #cbd9d5;
+  border-radius: 14px;
+}
+h2 {
+  font-size: 1.45rem;
+  letter-spacing: -.035em;
+  margin: 0 0 1.2rem;
+}
+label,
+h3,
+summary {
+  font-size: .9rem;
+  font-weight: 650;
+}
+label {
+  display: block;
+  margin: 1rem 0 .4rem;
+}
+select,
+textarea,
+button {
+  font: inherit;
+}
+select,
+textarea {
+  width: 100%;
+  padding: .65rem;
+  border-radius: 7px;
+  border: 1px solid #9fb4ad;
+  background: white;
+  color: inherit;
+}
+textarea {
+  resize: vertical;
+}
+button {
+  cursor: pointer;
+  color: white;
+  background: #086757;
+  padding: .65rem 1.4rem;
+  border: 0;
+  border-radius: 7px;
+  font-weight: 650;
+  margin: 1rem 0 .75rem;
+}
+button:disabled {
+  opacity: .7;
+}
+small,
+.metadata,
+[role=status] {
+  color: #4a645f;
+}
+small {
+  display: block;
+}
+article {
+  border-top: 1px solid #d6e1dd;
+  padding-top: 1rem;
+  margin-top: 1.2rem;
+  overflow-wrap: anywhere;
+}
+.metadata {
+  font: .85rem monospace;
+}
+h3 {
+  margin: 1rem 0 .2rem;
+}
+article p {
+  margin: 0;
+}
+.reply {
+  border-left: 3px solid #1b9279;
+  padding-left: .85rem;
+}
+details {
+  margin-top: 1.2rem;
+}
+summary {
+  cursor: pointer;
+}
+pre {
+  white-space: pre-wrap;
+  background: #ecf5f1;
+  padding: 1rem;
+  border-radius: 6px;
+}
+button:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+  outline: 3px solid #218373;
+  outline-offset: 2px;
+}
+[role=alert] {
+  color: #903623;
+}
+@media (max-width: 700px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+  main {
+    padding: 2rem 0;
+  }
+}

@@ -1,3 +1,6 @@
 __pycache__/
 .venv/
 .env
+
+ui/node_modules/
+ui/dist/
