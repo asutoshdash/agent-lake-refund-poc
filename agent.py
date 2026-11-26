@@ -55,7 +55,7 @@ def answer(turn, history, *, complete, model):
                         parallel_tool_calls=False)
     choice = response.choices[0]
     calls = choice.message.tool_calls or []
-    if choice.finish_reason != "tool_calls" or len(calls) != 1:
+    if choice.finish_reason not in {"tool_calls", "stop"} or len(calls) != 1:
         raise RuntimeError("Required refund lookup was missing")
     call = calls[0]
     if call.function.name != "lookup_refund":

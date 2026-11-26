@@ -25,7 +25,8 @@ class AgentTests(unittest.TestCase):
                     "id": "call_1", "type": "function", "function": {
                         "name": "lookup_refund", "arguments": '{"refund_id":"demo-refund-7"}'}
                 }]}
-                reason = "tool_calls"
+                # A complete tool call can arrive with a stop finish reason.
+                reason = "stop"
             else:
                 result = body["messages"][-1]
                 self.assertEqual(result["tool_call_id"], "call_1")
