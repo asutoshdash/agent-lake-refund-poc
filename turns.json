@@ -1,0 +1,51 @@
+[
+  {
+    "at": "2026-11-24T09:41:00Z",
+    "thread_id": "demo-ticket-7",
+    "refund_id": "demo-refund-7",
+    "question": "Has my refund gone through?",
+    "snapshot": {
+      "http": 200,
+      "state": "pending",
+      "receipt": null
+    }
+  },
+  {
+    "at": "2026-11-25T09:41:00Z",
+    "thread_id": "demo-ticket-7",
+    "refund_id": "demo-refund-7",
+    "question": "Has my refund gone through?",
+    "snapshot": {
+      "http": 200,
+      "state": "settled",
+      "receipt": "demo-receipt-7"
+    }
+  },
+  {
+    "at": "2026-11-25T09:41:00Z",
+    "thread_id": "demo-ticket-8",
+    "refund_id": "demo-refund-8",
+    "question": "Has my refund gone through?",
+    "snapshot": {
+      "http": 200,
+      "state": "failed",
+      "receipt": null
+    }
+  },
+  {
+    "at": "2026-11-25T09:41:00Z",
+    "thread_id": "demo-ticket-9",
+    "refund_id": "demo-refund-9",
+    "question": "Has my refund gone through?",
+    "snapshot": {
+      "error": "timeout"
+    }
+  },
+  {
+    "at": "2026-11-25T09:41:00Z",
+    "thread_id": "demo-ticket-10",
+    "refund_id": "demo-refund-10",
+    "question": "Has my refund gone through?",
+    "snapshot": null
+  }
+]
