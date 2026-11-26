@@ -12,15 +12,13 @@ npm run build --prefix ui
 python3 ui_server.py
 ```
 
-Open [the local console](http://127.0.0.1:8077). Choose a simulated payment scenario, enter a question, and select **Run query**. The pending-to-settled scenario shows both lookups and replies in sequence. Each submission starts a fresh conversation. Under **Agent Lake pipeline**, expand a step to inspect its runtime data. **Evaluate the reply with OpenAI** adds a judge call per turn and displays its verdict, supporting quote, and scores. This local view shows the current submission. The Saved LangSmith runs panel reads earlier traces from your configured server. The server calls the same agent as the CLI and keeps the API key on the server. The React bundle is served locally.
+Open [the local console](http://127.0.0.1:8077). Choose a simulated payment scenario, enter a question, and select **Run query**. The pending-to-settled scenario shows both lookups and replies in sequence. Each submission starts a fresh conversation. Under **Agent Lake pipeline**, expand a step to inspect its runtime data. **Evaluate the reply with OpenAI** adds a judge call per turn and displays its verdict, supporting quote, and scores. This local view shows the current submission. Select a question under **Saved runs** to reopen its SQLite trace. The server calls the same agent as the CLI and keeps the API key on the server. The React bundle is served locally.
 
-## Persist console runs in LangSmith
+## Local run history
 
-Add LANGSMITH_API_KEY to the local .env using a workspace key with trace write and read access. Set LANGSMITH_PROJECT to the destination tracing project (default refund-agent-lake). For a self-hosted instance or regional deployment, set LANGSMITH_ENDPOINT to its API URL. An agent environment can use its tracer_session_name as the project. Restart the console after changing .env. An exported LANGSMITH_TRACING=false disables uploads.
+The console creates `refund-runs.sqlite3` beside `ui_server.py` on startup using Python’s built-in SQLite driver. Every submission receives a run ID before fixture preparation. Each preparation, customer question, tool request, lookup result, reply, and optional evaluation is committed separately with its turn number and UTC capture time. The fixture’s own timestamp is recorded as `as_of`.
 
-The server starts a root trace before it prepares the fixture. The SDK sends nested preparation, agent, model and lookup runs during execution. The completed root includes the replies and any requested evaluation. After read-back verification the UI offers **Open saved LangSmith trace**. **Saved LangSmith runs** lists the latest 20 console submissions for this project, including failed runs recorded by the server. Retention follows the LangSmith instance settings.
-
-Self-hosted LangSmith requires a licensed instance. The SDK also supports LangSmith Cloud. [LangChain self-hosting documentation](https://docs.langchain.com/langsmith/self-hosted)
+**Saved runs** lists the 20 newest submissions. Select one to inspect its ordered events. Refresh the list during a request to open a running trace. Its events update until the request finishes. Failed runs retain earlier evidence, and the server marks unfinished runs interrupted on restart. The database stays on disk and is ignored by Git. The local console sends model requests to OpenAI and stores its history locally. The separate LangSmith experiment remains available below.
 
 ## Try the live OpenAI agent
 

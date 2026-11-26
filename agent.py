@@ -47,7 +47,16 @@ def lookup(requested_id, ticket_id, snapshot):
 
 
 @traceable(name="refund_status_turn")
-def answer(turn, history, *, complete, model):
+def answer(turn, history, *, complete, model, record=None):
+    trace = []
+
+    def emit(stage, data):
+        event = {"stage": stage, "data": data}
+        trace.append(event)
+        if record is not None:
+            record(event)
+
+    emit("Customer question", turn["question"])
     messages = [{"role": "system", "content": PROMPT}, *history,
                 {"role": "user", "content": f"Ticket refund: {turn['refund_id']}\n{turn['question']}"}]
     response = complete(model=model, messages=messages, tools=[TOOL],
@@ -61,15 +70,14 @@ def answer(turn, history, *, complete, model):
     if call.function.name != "lookup_refund":
         raise ValueError("Unexpected tool requested")
     requested = json.loads(call.function.arguments)["refund_id"]
-    trace = [{"stage": "Customer question", "data": turn["question"]},
-             {"stage": "Model requested a tool", "data": {"model": model, "tool": call.function.name,
-              "refund_id": requested, "tool_call_id": call.id}}]
+    emit("Model requested a tool", {"model": model, "tool": call.function.name,
+                                    "refund_id": requested, "tool_call_id": call.id})
     result = lookup(requested, turn["refund_id"], turn["snapshot"])
-    trace.append({"stage": "Payment lookup", "data": result})
+    emit("Payment lookup", result)
     matched = requested == turn["refund_id"]
     if not result or result.get("state") not in {"pending", "settled", "failed"}:
         reply = "I couldn't verify your refund status."
-        trace.append({"stage": "Fallback reply", "data": reply})
+        emit("Fallback reply", reply)
     else:
         messages.append(choice.message.model_dump(exclude_none=True))
         messages.append({"role": "tool", "tool_call_id": call.id, "content": json.dumps(result)})
@@ -77,15 +85,16 @@ def answer(turn, history, *, complete, model):
         if final.finish_reason != "stop" or not final.message.content:
             raise RuntimeError("Incomplete customer reply")
         reply = final.message.content
-        trace.append({"stage": "Model reply", "data": reply})
+        emit("Model reply", reply)
     return {"reply": reply, "tool_result": result if matched else None, "fresh_lookup": matched, "trace": trace}
 
 
-def conversation(turns, *, complete, model):
+def conversation(turns, *, complete, model, record=None):
     history = []
-    for turn in turns:
+    for number, turn in enumerate(turns, start=1):
         with tracing_context(metadata={"thread_id": turn["thread_id"], "agent_version": "openai-agent"}):
-            output = answer(turn, history, complete=complete, model=model)
+            output = answer(turn, history, complete=complete, model=model,
+                            record=(lambda event: record(number, event)) if record else None)
         history.extend([{"role": "user", "content": turn["question"]},
                         {"role": "assistant", "content": output["reply"]}])
         yield output

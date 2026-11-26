@@ -6,6 +6,35 @@ const scenarios = {
   timeout: "Processor timeout", missing: "Missing evidence", followup: "Pending → settled (two turns)"
 };
 
+function SavedTrace({id}) {
+  const [run, setRun] = useState(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    const controller = new AbortController();
+    let timer;
+    async function read() {
+      try {
+        const response = await fetch("/api/runs/" + id, {signal: controller.signal});
+        if (!response.ok) throw new Error("Could not load this trace.");
+        const data = await response.json();
+        setRun(data);
+        if (data.status === "Running") timer = setTimeout(read, 1200);
+      } catch (e) {
+        if (!controller.signal.aborted) setError(e.message);
+      }
+    }
+    read();
+    return () => { controller.abort(); clearTimeout(timer); };
+  }, [id]);
+  if (error) return <p role="alert">{error}</p>;
+  if (!run) return <p role="status">Loading saved trace…</p>;
+  return <article><h3>{run.question}</h3><small>{scenarios[run.scenario]} · {run.status}</small>
+    <ol className="pipeline">{run.events.map((event, index)=><li key={index}>
+      <details open={event.stage === "Payment lookup"}><summary>Turn {event.turn} · {event.stage}</summary>
+        <small>{event.at}</small><pre>{typeof event.data === "string" ? event.data : JSON.stringify(event.data,null,2)}</pre>
+      </details></li>)}</ol></article>;
+}
+
 function Console() {
   const [scenario, setScenario] = useState("pending");
   const [question, setQuestion] = useState("Has my refund gone through?");
@@ -15,7 +44,7 @@ function Console() {
   const [error, setError] = useState("");
 
   const [history, setHistory] = useState({runs: []});
-  const [saved, setSaved] = useState(null);
+  const [selected, setSelected] = useState(null);
 
   async function refreshHistory() {
     try {
@@ -33,14 +62,14 @@ function Console() {
     setBusy(true);
     setError("");
     setRows([]);
-    setSaved(null);
+    setSelected(null);
     try {
       const response = await fetch("/api/query", {method: "POST", headers: {"Content-Type": "application/json"},
         body: JSON.stringify({case: scenario, question, evaluate})});
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Request failed. Try again.");
       setRows(data.turns);
-      setSaved(data);
+
     } catch (e) {
       setError(e instanceof TypeError ? "Could not reach the local server. Check the connection and retry." : e.message);
     } finally {
@@ -59,8 +88,6 @@ function Console() {
       <button disabled={busy}>{busy ? "Running lookup…" : "Run query"}</button>
       <small>Live agent · Simulated payments</small></form>
       <section aria-labelledby="result"><h2 id="result">Agent Lake pipeline</h2><div role="status">{busy ? "Waiting for the refund agent…" : rows.length ? "Lookup complete" : error ? "" : "Run a query to trace the question, tool call, payment evidence, and reply."}</div>
-      {saved?.url && <p><a href={saved.url} target="_blank" rel="noreferrer">Open saved LangSmith trace</a></p>}
-      {saved?.storage_warning && <p role="status">{saved.storage_warning} Run ID: {saved.run_id}</p>}
       {error && <p role="alert">{error}</p>}
       {rows.map((r,i)=><article key={i}><div className="metadata">{r.refund_id} · Turn {i+1}</div>
         <h3>Agent reply</h3><p className="reply">{r.reply}</p>
@@ -70,14 +97,15 @@ function Console() {
             {typeof step.data === "string" ? <p>{step.data}</p> : <pre>{JSON.stringify(step.data,null,2)}</pre>}
           </details></li>)}</ol></article>)}
       </section></div>
-      <section className="history"><h2>Saved LangSmith runs</h2>
+      <section className="history"><h2>Saved runs</h2><small>SQLite · Latest 20 runs</small>
         <button type="button" onClick={refreshHistory}>Refresh history</button>
-        {history.error ? <p role="alert">{history.error}</p> : history.enabled === false
-          ? <p>To save new runs, configure LangSmith in the server’s .env and restart the console.</p>
-          : history.enabled && !history.runs.length && <p>No saved runs in this project yet.</p>}
+        {history.error && <p role="alert">{history.error}</p>}
+        {history.runs?.length === 0 && <p>No saved runs yet.</p>}
         {history.runs?.length > 0 && <ul>{history.runs.map(run=><li key={run.id}>
-          <a href={run.url} target="_blank" rel="noreferrer">{run.question}</a>
-          <small>{new Date(run.at).toLocaleString()} · {run.status}</small></li>)}</ul>}
+          <button type="button" aria-expanded={selected === run.id}
+            onClick={()=>setSelected(selected === run.id ? null : run.id)}>{run.question}</button>
+          <small>{new Date(run.at).toLocaleString()} · {run.status}</small>
+          {selected === run.id && <SavedTrace key={run.id} id={run.id}/>}</li>)}</ul>}
       </section></main></>;
 }
 createRoot(document.getElementById("root")).render(<Console/>);
