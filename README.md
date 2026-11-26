@@ -2,13 +2,35 @@
 
 Companion to [Using the LangSmith agent lake to catch false refund confirmations](https://www.aiconnector.ai/blogs/langsmith-agent-lake-refund-guide.html). Was a refund already complete when the assistant told the customer it was?
 
-## Run locally
+## Try the live OpenAI agent
+
+Run these commands in the cloned repository with Python 3.10+:
+
+```sh
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r requirements.txt
+python agent.py --case pending --question "Is my money back in my account?"
+```
+
+The CLI reads OPENAI_API_KEY if already set, or prompts for the key with hidden input. The live command sends synthetic ticket details and your question to OpenAI and uses your API billing. The default model is gpt-4.1-mini. Pass `--model` to select another Chat Completions model with function calling.
+
+```sh
+python agent.py --case followup
+python agent.py --case timeout
+```
+
+The model receives the question and a single read-only tool definition. It chooses whether to call the tool and supplies the refund ID. Python checks that the ID belongs to this ticket, returns the frozen processor response under the matching tool-call ID, and asks the model to continue. The model writes the customer reply. Followup mode carries the conversation across two turns while advancing the processor fixture from pending to settled. The printed evidence is null when no matching snapshot was observed.
+
+To inspect model calls and nested tool runs, configure LangSmith credentials as described below and run `LANGSMITH_TRACING=true python agent.py --case followup`. The actual-agent path produces free-form replies for inspection. The scored experiments below use the controlled baseline and candidate policies.
+
+## Run the deterministic replay locally
 
 With Python 3.10 or newer, run:
 
 ```sh
 python3 demo.py
-python3 -m unittest -v
+python3 -m unittest -v test_demo
 ```
 
 ```text
