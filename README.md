@@ -2,17 +2,48 @@
 
 Companion to [Using the LangSmith agent lake to catch false refund confirmations](https://www.aiconnector.ai/blogs/langsmith-agent-lake-refund-guide.html). Was a refund already complete when the assistant told the customer it was?
 
-## Open the React refund console
+## What this POC demonstrates
 
-With the Python dependencies installed and your OpenAI key in the repository's `.env`, run:
+The refund agent answers status questions. Its only tool, `lookup_refund`, reads a simulated processor response from the fixtures in `turns.json`. The agent can tell a customer that a refund is pending or settled. It has no payment connection or ability to issue a refund.
+
+The agent lake use case is to find replies that the evidence did not support *when the agent answered*. A refund can settle tomorrow even if today's “your refund is complete” was wrong. Keeping each tool result beside the reply from the same turn lets you detect that mistake and replay the case to test a fix.
+
+| Component | Role in this example |
+| --- | --- |
+| SQLite | The console saves the customer question, tool request, observed result, and reply as the agent works. Each event is committed separately, so the lookup survives even if generating the reply fails. |
+| Evaluator | When enabled, a separate model call classifies the reply and quotes the relevant wording. Python compares that classification with the evidence for the turn. |
+| LangSmith and SmithDB | The optional CLI tracing and experiment paths send traces to LangSmith. SmithDB is LangSmith’s underlying trace store. The local console uses SQLite independently and runs with only an OpenAI key. |
+
+For the architecture behind trace search and evaluation across many runs, see [LangChain’s description of the agent lake and SmithDB](https://www.langchain.com/blog/the-agent-lake).
+
+## Set up the local console
+
+You’ll need Git, Python 3.10+ with `venv`, Node.js 18+ with npm, and an OpenAI API key with model access. The following commands use a macOS or Linux shell. For a Python-only replay with no API key, clone the repository and run `python3 demo.py` from its root.
+
+```sh
+git clone https://github.com/asutoshdash/agent-lake-refund-poc.git
+cd agent-lake-refund-poc
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r requirements.txt
+cp -n .env.example .env
+```
+
+Open `.env` and set `OPENAI_API_KEY` to your key. Then build the UI and start the server from the same shell.
 
 ```sh
 npm ci --prefix ui
 npm run build --prefix ui
-python3 ui_server.py
+python ui_server.py
 ```
 
-Open [the local console](http://127.0.0.1:8077). Choose a simulated payment scenario, enter a question, and select **Run query**. The pending-to-settled scenario shows both lookups and replies in sequence. Each submission starts a fresh conversation. Under **Agent Lake pipeline**, expand a step to inspect its runtime data. **Evaluate the reply with OpenAI** adds a judge call per turn and displays its verdict, supporting quote, and scores. This local view shows the current submission. Select a question under **Saved runs** to reopen its SQLite trace. The server calls the same agent as the CLI and keeps the API key on the server. The React bundle is served locally.
+Open [the local refund console](http://127.0.0.1:8077). The Python server keeps the key on the server side. Live queries and optional evaluations use your OpenAI account.
+
+### Verify your first run
+
+1. Choose **Pending → settled (two turns)**, enter “Has it settled yet?” as the follow-up question, enable **Evaluate the reply with OpenAI**, and select **Run query**.
+2. Expand the steps under **Agent Lake pipeline**. The first lookup should show `pending` and the second `settled` for the same refund. Compare each reply and evaluation with the lookup from that turn.
+3. Reopen the question under **Saved runs**. To check persistence, stop the server with Ctrl+C, run `python ui_server.py` again, and reopen the same trace.
 
 ## Local run history
 
@@ -22,16 +53,7 @@ The console creates `refund-runs.sqlite3` beside `ui_server.py` on startup using
 
 ## Try the live OpenAI agent
 
-Run these commands in the cloned repository with Python 3.10+:
-
-```sh
-python3 -m venv .venv
-. .venv/bin/activate
-python -m pip install -r requirements.txt
-cp -n .env.example .env
-```
-
-Open `.env` next to `agent.py` and enter your key after `OPENAI_API_KEY=`. Git ignores this local file. Start the agent with:
+From the repository root, with the virtual environment activated and the OpenAI key configured, run:
 
 ```sh
 python agent.py --case pending --question "Is my money back in my account?"
