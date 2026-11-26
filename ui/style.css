@@ -168,3 +168,7 @@ summary:focus-visible {
 .pipeline details {margin:0}
 .pipeline summary {padding:.2rem 0}
 .pipeline pre {margin:.4rem 0}
+
+.history {margin-top:1.25rem}
+.history button {margin:0}
+.history li {margin-bottom:.7rem}

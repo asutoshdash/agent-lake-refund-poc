@@ -1,4 +1,4 @@
-import React, {useState} from "react";
+import React, {useState, useEffect} from "react";
 import {createRoot} from "react-dom/client";
 
 const scenarios = {
@@ -14,22 +14,38 @@ function Console() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
+  const [history, setHistory] = useState({runs: []});
+  const [saved, setSaved] = useState(null);
+
+  async function refreshHistory() {
+    try {
+      const response = await fetch("/api/runs");
+      setHistory(await response.json());
+    } catch {
+      setHistory({error: "Could not load saved runs."});
+    }
+  }
+  useEffect(() => { refreshHistory(); }, []);
+
   async function submit(event) {
     event.preventDefault();
     if (busy) return;
     setBusy(true);
     setError("");
     setRows([]);
+    setSaved(null);
     try {
       const response = await fetch("/api/query", {method: "POST", headers: {"Content-Type": "application/json"},
         body: JSON.stringify({case: scenario, question, evaluate})});
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Request failed. Try again.");
       setRows(data.turns);
+      setSaved(data);
     } catch (e) {
       setError(e instanceof TypeError ? "Could not reach the local server. Check the connection and retry." : e.message);
     } finally {
       setBusy(false);
+      refreshHistory();
     }
   }
   return <><header><div className="brand"><span aria-hidden="true">≋</span> Agent Lake</div></header>
@@ -43,6 +59,8 @@ function Console() {
       <button disabled={busy}>{busy ? "Running lookup…" : "Run query"}</button>
       <small>Live agent · Simulated payments</small></form>
       <section aria-labelledby="result"><h2 id="result">Agent Lake pipeline</h2><div role="status">{busy ? "Waiting for the refund agent…" : rows.length ? "Lookup complete" : error ? "" : "Run a query to trace the question, tool call, payment evidence, and reply."}</div>
+      {saved?.url && <p><a href={saved.url} target="_blank" rel="noreferrer">Open saved LangSmith trace</a></p>}
+      {saved?.storage_warning && <p role="status">{saved.storage_warning} Run ID: {saved.run_id}</p>}
       {error && <p role="alert">{error}</p>}
       {rows.map((r,i)=><article key={i}><div className="metadata">{r.refund_id} · Turn {i+1}</div>
         <h3>Agent reply</h3><p className="reply">{r.reply}</p>
@@ -51,6 +69,15 @@ function Console() {
             <summary>{step.stage}</summary>
             {typeof step.data === "string" ? <p>{step.data}</p> : <pre>{JSON.stringify(step.data,null,2)}</pre>}
           </details></li>)}</ol></article>)}
-      </section></div></main></>;
+      </section></div>
+      <section className="history"><h2>Saved LangSmith runs</h2>
+        <button type="button" onClick={refreshHistory}>Refresh history</button>
+        {history.error ? <p role="alert">{history.error}</p> : history.enabled === false
+          ? <p>To save new runs, configure LangSmith in the server’s .env and restart the console.</p>
+          : history.enabled && !history.runs.length && <p>No saved runs in this project yet.</p>}
+        {history.runs?.length > 0 && <ul>{history.runs.map(run=><li key={run.id}>
+          <a href={run.url} target="_blank" rel="noreferrer">{run.question}</a>
+          <small>{new Date(run.at).toLocaleString()} · {run.status}</small></li>)}</ul>}
+      </section></main></>;
 }
 createRoot(document.getElementById("root")).render(<Console/>);
