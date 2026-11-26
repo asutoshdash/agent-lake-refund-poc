@@ -26,9 +26,9 @@ python agent.py --case followup
 python agent.py --case timeout
 ```
 
-The model receives the question and a single read-only tool definition. It chooses whether to call the tool and supplies the refund ID. Python checks that the ID belongs to this ticket, returns the frozen processor response under the matching tool-call ID, and asks the model to continue. The model writes the customer reply. Followup mode carries the conversation across two turns while advancing the processor fixture from pending to settled. The printed evidence is null when no matching snapshot was observed.
+The model receives the question and a single read-only tool definition. Each turn requires a fresh tool call. The model supplies the refund ID. Python checks that the ID belongs to this ticket, returns the frozen processor response under the matching tool-call ID, and asks the model to continue. The model writes the reply for a recognized payment state. A timeout, missing snapshot, or mismatched refund ID produces an explicit inability-to-verify reply. Followup mode carries the conversation across two turns while advancing the processor fixture from pending to settled. The printed evidence is null when no matching snapshot was observed.
 
-To inspect model calls and nested tool runs, configure LangSmith credentials as described below and run `LANGSMITH_TRACING=true python agent.py --case followup`. The actual-agent path produces free-form replies for inspection. The scored experiments below use the controlled baseline and candidate policies.
+To inspect model calls and nested tool runs, configure LangSmith credentials as described below and run `LANGSMITH_TRACING=true python agent.py --case followup`. The experiments below run the same conversation function as the CLI.
 
 ## Run the deterministic replay locally
 
@@ -50,14 +50,24 @@ Open `turns.json`. On Nov 24 the payment stub returns HTTP 200, state pending, a
 
 The adapter exposes one read operation. The demonstration uses deterministic reply templates, synthetic records, and zero payment connections. The evaluator recognizes the completion sentence in this controlled vocabulary. Free-form production replies would need a separately calibrated evaluator. A recorded timeout counts as evaluated unknown evidence. A missing snapshot models a measurement gap and is excluded from the denominator.
 
-## Run in LangSmith
+## Evaluate the live agent
 
-Install the optional SDK with `python3 -m pip install 'langsmith>=0.3.13,<1'` in a virtual environment. Configure your development workspace's LANGSMITH_API_KEY, LANGSMITH_AGENT_ID and LANGSMITH_AGENT_ENVIRONMENT, then run:
+With the dependencies installed and your OpenAI key configured, run:
 
 ```sh
-LANGSMITH_TRACING=true python3 experiments.py
+python experiments.py --local
 ```
 
-Each invocation creates a new dataset of five synthetic turns and two experiments using those same examples. Compare the experiment outputs and the unsupported_settlement feedback in LangSmith. Open refund_status_turn and expand lookup_refund to see the recorded response behind the reply. The missing fixture receives a separate missing_evidence feedback key. Dates in the input are fixture times, while trace timestamps reflect replay execution.
+This exercises four conversations across five turns, including the pending-to-settled follow-up with conversation history. The command prints replies and feedback and exits with status 1 if any conversation fails. Both the agent and the evaluator use your OpenAI account. Set OPENAI_MODEL and optionally JUDGE_MODEL in your environment or .env.
+
+Each turn records whether the agent looked up the correct refund and the evidence it observed. A separate model call reads only the customer-facing reply, classifies its meaning, and returns a supporting quote. Python compares the label with the frozen state. A conversation passes only when every turn has a fresh matching lookup and communicates the expected status. Missing evidence is counted separately and excluded from unsupported-settlement scoring. Review the judge's quotes against human labels before using these scores as a release gate.
+
+To publish a LangSmith experiment, configure LANGSMITH_API_KEY, LANGSMITH_AGENT_ID and LANGSMITH_AGENT_ENVIRONMENT for your development workspace, then run:
+
+```sh
+LANGSMITH_TRACING=true python experiments.py
+```
+
+Each invocation creates a dataset of four conversations and one live-agent experiment. Inspect the conversation_pass score and per-turn feedback. Expand refund_status_turn to see the model and tool calls that produced a reply.
 
 [LangSmith instrumentation](https://docs.langchain.com/langsmith/annotate-code) · [SDK experiments](https://docs.langchain.com/langsmith/evaluate-llm-application)

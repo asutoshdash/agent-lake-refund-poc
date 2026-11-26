@@ -50,26 +50,39 @@ def lookup(requested_id, ticket_id, snapshot):
 def answer(turn, history, *, complete, model):
     messages = [{"role": "system", "content": PROMPT}, *history,
                 {"role": "user", "content": f"Ticket refund: {turn['refund_id']}\n{turn['question']}"}]
-    evidence = None
-    for _ in range(4):
-        response = complete(model=model, messages=messages, tools=[TOOL],
-                            tool_choice="auto", parallel_tool_calls=False)
-        choice = response.choices[0]
-        message = choice.message
-        if choice.finish_reason == "stop" and message.content and not message.tool_calls:
-            return {"reply": message.content, "tool_result": evidence}
-        if choice.finish_reason != "tool_calls" or not message.tool_calls:
-            raise RuntimeError(f"Incomplete model response ({choice.finish_reason})")
-        messages.append(message.model_dump(exclude_none=True))
-        for call in message.tool_calls:
-            if call.function.name != "lookup_refund":
-                raise ValueError("Unexpected tool requested")
-            requested = json.loads(call.function.arguments)["refund_id"]
-            result = lookup(requested, turn["refund_id"], turn["snapshot"])
-            if requested == turn["refund_id"]:
-                evidence = result
-            messages.append({"role": "tool", "tool_call_id": call.id, "content": json.dumps(result)})
-    raise RuntimeError("Model exceeded the tool-call limit")
+    response = complete(model=model, messages=messages, tools=[TOOL],
+                        tool_choice={"type": "function", "function": {"name": "lookup_refund"}},
+                        parallel_tool_calls=False)
+    choice = response.choices[0]
+    calls = choice.message.tool_calls or []
+    if choice.finish_reason != "tool_calls" or len(calls) != 1:
+        raise RuntimeError("Required refund lookup was missing")
+    call = calls[0]
+    if call.function.name != "lookup_refund":
+        raise ValueError("Unexpected tool requested")
+    requested = json.loads(call.function.arguments)["refund_id"]
+    result = lookup(requested, turn["refund_id"], turn["snapshot"])
+    matched = requested == turn["refund_id"]
+    if not result or result.get("state") not in {"pending", "settled", "failed"}:
+        reply = "I couldn't verify your refund status."
+    else:
+        messages.append(choice.message.model_dump(exclude_none=True))
+        messages.append({"role": "tool", "tool_call_id": call.id, "content": json.dumps(result)})
+        final = complete(model=model, messages=messages).choices[0]
+        if final.finish_reason != "stop" or not final.message.content:
+            raise RuntimeError("Incomplete customer reply")
+        reply = final.message.content
+    return {"reply": reply, "tool_result": result if matched else None, "fresh_lookup": matched}
+
+
+def conversation(turns, *, complete, model):
+    history = []
+    for turn in turns:
+        with tracing_context(metadata={"thread_id": turn["thread_id"], "agent_version": "openai-agent"}):
+            output = answer(turn, history, complete=complete, model=model)
+        history.extend([{"role": "user", "content": turn["question"]},
+                        {"role": "assistant", "content": output["reply"]}])
+        yield output
 
 
 def main():
@@ -83,17 +96,12 @@ def main():
     cases = dict(zip(("pending", "settled", "failed", "timeout", "missing"), CASES, strict=True))
     turns = CASES[:2] if args.case == "followup" else [cases[args.case]]
     client = open_client()
-    history = []
-    for index, original in enumerate(turns):
-        turn = dict(original)
-        if args.question and index == len(turns) - 1:
-            turn["question"] = args.question
-        with tracing_context(metadata={"thread_id": turn["thread_id"], "agent_version": "openai-agent"}):
-            output = answer(turn, history, complete=client.chat.completions.create, model=args.model)
+    if args.question:
+        turns = [*turns[:-1], dict(turns[-1], question=args.question)]
+    outputs = conversation(turns, complete=client.chat.completions.create, model=args.model)
+    for turn, output in zip(turns, outputs, strict=True):
         print(f"\n{turn['at']}  {turn['refund_id']}\nCustomer: {turn['question']}")
         print(f"Observed tool evidence: {json.dumps(output['tool_result'])}\nAgent: {output['reply']}")
-        history.extend([{"role": "user", "content": turn["question"]},
-                        {"role": "assistant", "content": output["reply"]}])
 
 
 if __name__ == "__main__":
