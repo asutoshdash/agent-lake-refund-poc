@@ -4,7 +4,9 @@ import argparse
 from getpass import getpass
 import json
 import os
+from pathlib import Path
 
+from dotenv import load_dotenv
 from langsmith import traceable, tracing_context
 from langsmith.wrappers import wrap_openai
 from openai import OpenAI
@@ -71,6 +73,7 @@ def answer(turn, history, *, complete, model):
 
 
 def main():
+    load_dotenv(Path(__file__).resolve().with_name(".env"), override=False)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", default=os.getenv("OPENAI_MODEL", "gpt-4.1-mini"))
     parser.add_argument("--case", choices=["pending", "settled", "failed", "timeout", "missing", "followup"],

@@ -10,10 +10,16 @@ Run these commands in the cloned repository with Python 3.10+:
 python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install -r requirements.txt
+cp -n .env.example .env
+```
+
+Open `.env` next to `agent.py` and enter your key after `OPENAI_API_KEY=`. Git ignores this local file. Start the agent with:
+
+```sh
 python agent.py --case pending --question "Is my money back in my account?"
 ```
 
-The CLI reads OPENAI_API_KEY if already set, or prompts for the key with hidden input. The live command sends synthetic ticket details and your question to OpenAI and uses your API billing. The default model is gpt-4.1-mini. Pass `--model` to select another Chat Completions model with function calling.
+An exported OPENAI_API_KEY takes precedence over the file. If the key is missing, the CLI prompts with hidden input. The live command sends synthetic ticket details and your question to OpenAI and uses your API billing. The default model is gpt-4.1-mini. Pass `--model` to select another Chat Completions model with function calling.
 
 ```sh
 python agent.py --case followup
